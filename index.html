@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+
+<body>
+    <div class="container" x-data="store">
+        <template x-if="show">
+            <article>
+                <ul>
+                    <template x-for="item in items">
+                        <div>
+                            <h6 x-text="modeText"></h6>
+                            <li :class="item.class" x-text="item.text"></li>
+                        </div>
+                    </template>
+                </ul>
+            </article>
+        </template>
+        <article>
+            <form>
+                <div class="flex flex-layout">
+                    <div class="grid">
+                        <div>
+                            <label for="creditLimit"><b>Credit Limit</b></label>
+                            <input id="creditLimit" placeholder="credit limit" x-model="creditLimit" />
+                        </div>
+                        <div>
+                            <label for="credit"><b>Credit Money Taken</b></label>
+                            <input id="credit" placeholder="credit available money" x-model="creditAvail" />
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div>
+                            <label for="budget"><b>Budget</b></label>
+                            <input id="budget" placeholder="budget" x-model="budget" />
+                        </div>
+                        <div>
+                            <label for="spent"><b>Spent</b></label>
+                            <input id="spent" placeholder="spent" x-model="spent" />
+                        </div>
+                    </div>
+                    <div class="grid">
+                        <div>
+                            <label for="rent"><b>Rent</b></label>
+                            <input id="rent" placeholder="rent" x-model="rent" />
+                        </div>
+                        <div>
+                            <label for="mode"><b>Mode</b></label>
+    
+                            <select id="mode" x-model="mode">
+                                <template x-for="item in modes">
+                                    <option x-text="item"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </article>
+    </div>
+    <script>
+        const modes = {
+            spent_w_debt_and_rent: 'Spent w/ debt and rent',
+            spent: 'Spent',
+            spent_w_debt: 'Spent w/ debt',
+        };
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('store', function () {
+                console.log(this.$persist)
+                return {
+                    creditAvail: this.$persist(0),
+                    spent: this.$persist(0),
+                    creditLimit: this.$persist(0),
+                    budget: this.$persist(0),
+                    rent: this.$persist(0),
+                    mode: this.$persist(modes.spent_w_debt_and_rent),
+                    modes: Object.values(modes),
+                    get show() {
+                        return Boolean(parseInt(this.spent))
+                    },
+                    get modeText() {
+                        return this.mode
+                    },
+                    get items() {
+                        return Object.entries(getMoneyData(
+                            ...[this.creditAvail,
+                            this.spent,
+                            this.creditLimit,
+                            this.budget,
+                            this.rent].map((it) => parseInt(it)),
+                        ).derivs)
+                            .filter(([key]) => modes[key] === this.mode)
+                            .map(([_, v]) => v)
+                            .map(([v1, v2]) => {
+                                const perc = v1 / v2
+                                return ({
+                                    text: `${v1}K out of ${v2}K`,
+                                    class: perc < 0.4 ?
+                                            '' : perc < 0.5 ? 
+                                            'green' : perc < 0.8 ?
+                                            'yellow' : 'red'
+                                })
+                            })
+                    }
+                }
+            });
+        })
+    </script>
+    <script>
+        function getMoneyData(creditAvailableMoney, spending, creditLimit, budget, rent) {
+            const debt = creditLimit - creditAvailableMoney;
+            const spent_debt = spending + debt;
+
+            const spent = [spending, budget];
+            const spent_w_debt = [spent_debt, budget];
+            const spent_w_debt_and_rent = [spent_debt + rent, budget];
+            
+            const derivs = { spent, spent_w_debt, spent_w_debt_and_rent };
+
+            return { budget, debt, spending, rent, derivs }
+        };
+    </script>
+    <style>
+        .green {
+            color: green;
+        }
+        .red {
+            color: red;
+        }
+        .yellow {
+            color: orange;
+        }
+        :root {
+            --block-spacing-vertical: calc(var(--spacing) * 1);
+        }
+    </style>
+</body>
+
+</html>
