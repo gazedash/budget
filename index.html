@@ -96,7 +96,7 @@
                             this.spent,
                             this.creditLimit,
                             this.budget,
-                            this.rent].map((it) => parseInt(it)),
+                            this.rent].map((it) => it ? parseInt(/[0-9]/.test(it) ? it : 0) : 0),
                         ).derivs)
                             .filter(([key]) => modes[key] === this.mode)
                             .map(([_, v]) => v)
