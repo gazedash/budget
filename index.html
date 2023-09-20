@@ -17,8 +17,8 @@
                 <ul>
                     <template x-for="item in items">
                         <div>
-                            <h6 x-text="modeText"></h6>
-                            <li :class="item.class" x-text="item.text"></li>
+                            <h6 x-text="mode"></h6>
+                            <li :class="item.textClass" x-text="item.text"></li>
                         </div>
                     </template>
                 </ul>
@@ -54,7 +54,6 @@
                         </div>
                         <div>
                             <label for="mode"><b>Mode</b></label>
-    
                             <select id="mode" x-model="mode">
                                 <template x-for="item in modes">
                                     <option x-text="item"></option>
@@ -75,7 +74,6 @@
 
         document.addEventListener('alpine:init', () => {
             Alpine.data('store', function () {
-                console.log(this.$persist)
                 return {
                     creditAvail: this.$persist(0),
                     spent: this.$persist(0),
@@ -85,29 +83,39 @@
                     mode: this.$persist(modes.spent_w_debt_and_rent),
                     modes: Object.values(modes),
                     get show() {
-                        return Boolean(parseInt(this.spent))
-                    },
-                    get modeText() {
-                        return this.mode
+                        return true // not needed
                     },
                     get items() {
-                        return Object.entries(getMoneyData(
-                            ...[this.creditAvail,
-                            this.spent,
-                            this.creditLimit,
-                            this.budget,
-                            this.rent].map((it) => it ? parseInt(/[0-9]/.test(it) ? it : 0) : 0),
-                        ).derivs)
+                        const params = [this.creditAvail, this.spent, this.creditLimit, this.budget, this.rent]
+
+                        const regex = /[0-9]/
+
+                        const intParams = params
+                            .map(it => it || 0)
+                            .map(it => regex.test(it) ? it : 0)
+                            .map((it) => parseInt(it))
+
+                        const moneyData = getMoneyData(...intParams)
+
+                        return Object
+                            .entries(moneyData.derivs)
                             .filter(([key]) => modes[key] === this.mode)
                             .map(([_, v]) => v)
                             .map(([v1, v2]) => {
                                 const perc = v1 / v2
+                                let textClass = '';
+
+                                switch (true) {
+                                    case perc > 0.8: textClass = 'red'; break;
+                                    case perc > 0.5: textClass = 'yellow'; break;
+                                    case perc > 0.4: textClass = 'green'; break;
+                                }
+
+                                const text = `${v1}K out of ${v2}K`;
+
                                 return ({
-                                    text: `${v1}K out of ${v2}K`,
-                                    class: perc < 0.4 ?
-                                            '' : perc < 0.5 ? 
-                                            'green' : perc < 0.8 ?
-                                            'yellow' : 'red'
+                                    text,
+                                    textClass
                                 })
                             })
                     }
@@ -116,14 +124,15 @@
         })
     </script>
     <script>
-        function getMoneyData(creditAvailableMoney, spending, creditLimit, budget, rent) {
+        function getMoneyData(_creditAvailableMoney, spending, creditLimit, budget, rent) {
+            const creditAvailableMoney = _creditAvailableMoney > creditLimit ? creditLimit : _creditAvailableMoney
             const debt = creditLimit - creditAvailableMoney;
             const spent_debt = spending + debt;
 
             const spent = [spending, budget];
             const spent_w_debt = [spent_debt, budget];
             const spent_w_debt_and_rent = [spent_debt + rent, budget];
-            
+
             const derivs = { spent, spent_w_debt, spent_w_debt_and_rent };
 
             return { budget, debt, spending, rent, derivs }
@@ -133,12 +142,15 @@
         .green {
             color: green;
         }
+
         .red {
             color: red;
         }
+
         .yellow {
             color: orange;
         }
+
         :root {
             --block-spacing-vertical: calc(var(--spacing) * 1);
         }
